@@ -594,7 +594,7 @@
 
             els.btnDown.innerHTML = '<i class="fas fa-file-zipper"></i> Đang nén ZIP...';
             const content = await zip.generateAsync({type:"blob"});
-            saveAs(content, "Anh_Da_Dong_Dau.zip");
+            saveAs(content, "AddLogoDone.zip");
             
             els.btnDown.innerHTML = '<i class="fas fa-download"></i> Tải Xuống (.ZIP)';
             els.btnDown.disabled = false;
