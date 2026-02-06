@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tool Đóng Dấu Hàng Loạt Đơn Giản v3.0</title>
+    <title>Tool Đóng Dấu Hàng Loạt Đơn Giản v3.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -39,18 +39,11 @@
             border-bottom: 1px solid var(--border); 
             background: #fff;
             display: flex;
-            justify-content: space-between;
+            justify-content: center; /* Canh giữa vì bỏ nút config */
             align-items: center;
         }
-        .sidebar-header h1 { margin: 0; font-size: 16px; color: var(--primary); font-weight: 800; text-transform: uppercase; }
+        .sidebar-header h1 { margin: 0; font-size: 18px; color: var(--primary); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        .config-actions button {
-            background: none; border: 1px solid var(--border);
-            border-radius: 4px; padding: 4px 8px; cursor: pointer; color: var(--secondary); font-size: 12px;
-            transition: all 0.2s;
-        }
-        .config-actions button:hover { background: var(--bg); color: var(--primary); border-color: var(--primary); }
-
         .scroll-area { flex: 1; overflow-y: auto; padding: 20px; }
         
         /* --- MAIN VIEW --- */
@@ -58,7 +51,7 @@
         
         /* 1. Large Preview Area (Sample) */
         .master-preview-container {
-            flex: 0 0 60%; /* Tăng diện tích xem ảnh */
+            flex: 0 0 60%; 
             background: #e2e8f0;
             display: flex;
             justify-content: center;
@@ -177,10 +170,6 @@
     <div class="sidebar">
         <div class="sidebar-header">
             <h1><i class="fas fa-stamp"></i> Auto Logo Batch</h1>
-            <div class="config-actions">
-                <button onclick="saveConfig()" title="Lưu vị trí logo"><i class="fas fa-save"></i> Lưu</button>
-                <button onclick="resetConfig()" title="Về mặc định"><i class="fas fa-undo"></i> Gốc</button>
-            </div>
         </div>
 
         <div class="scroll-area">
@@ -242,23 +231,9 @@
                     </div>
                 </div>
             </div>
-
-            <!-- 3. Export -->
-            <div class="group">
-                <div class="group-header">3. Xuất file</div>
-                <div class="group-content">
-                    <div class="control-row">
-                        <label>Định dạng:</label>
-                        <select id="outFormat" style="width:100%; padding:5px; border-radius: 4px; border: 1px solid #cbd5e1;">
-                            <option value="image/jpeg">JPG (Web - Nhẹ)</option>
-                            <option value="image/png">PNG (Chất lượng cao)</option>
-                        </select>
-                    </div>
-                    <div class="control-row">
-                        <label>Chất lượng: <span id="valQual">100</span>%</label>
-                        <input type="range" id="outQuality" min="0.5" max="1" step="0.01" value="1">
-                    </div>
-                </div>
+            
+            <div style="text-align: center; color: #64748b; font-size: 12px; margin-top: 10px;">
+                * Ảnh xuất ra sẽ ở định dạng chất lượng cao (PNG)
             </div>
         </div>
     </div>
@@ -299,7 +274,7 @@
             selectedIndex: 0,
             config: {
                 wm: { x: 95, y: 95, size: 15, opacity: 0.9 }, // Default bottom-right
-                output: { format: 'image/jpeg', quality: 1.0 }
+                output: { format: 'image/png', quality: 1.0 } // FORCE HIGH QUALITY
             }
         };
 
@@ -316,19 +291,19 @@
             
             // Labels & Displays
             valWmX: $('valWmX'), valWmY: $('valWmY'), 
-            valWmOp: $('valWmOp'), valQual: $('valQual'),
+            valWmOp: $('valWmOp'),
             numWmSize: $('numWmSize'),
-            lblWmText: $('lblWmText'), btnRemoveWm: $('btnRemoveWm'),
+            lblWmText: $('lblWmText'), 
+            btnRemoveWm: $('btnRemoveWm'),
+            lblWmBtn: $('lblWmBtn'), // FIXED: Added lblWmBtn here
             lblFiles: $('lblFiles'),
             
             // Inputs
-            wmX: $('wmX'), wmY: $('wmY'), wmSize: $('wmSize'), wmOp: $('wmOpacity'),
-            outFmt: $('outFormat'), outQual: $('outQuality')
+            wmX: $('wmX'), wmY: $('wmY'), wmSize: $('wmSize'), wmOp: $('wmOpacity')
         };
 
         // --- INITIALIZATION ---
         window.onload = () => {
-            loadConfig(); 
             initListeners();
             resizeCanvas();
         };
@@ -363,12 +338,12 @@
             els.wmFile.onchange = async (e) => {
                 if(e.target.files[0]) {
                     state.wmImg = await loadImage(e.target.files[0]);
-                    updateUIFromState();
+                    updateUIState();
                     updateAll();
                 }
             };
 
-            // Bind Inputs (Updated to prevent callback errors)
+            // Bind Inputs
             bindInput(els.wmX, 'wm', 'x', (val) => els.valWmX.innerText = val);
             bindInput(els.wmY, 'wm', 'y', (val) => els.valWmY.innerText = val);
             bindInput(els.wmSize, 'wm', 'size', (val) => els.numWmSize.value = val);
@@ -383,9 +358,6 @@
                 state.config.wm.size = v;
                 updateAll();
             }
-
-            bindInput(els.outFmt, 'output', 'format');
-            bindInput(els.outQual, 'output', 'quality', (val) => els.valQual.innerText = Math.round(val*100));
         }
 
         function bindInput(el, cat, key, callback) {
@@ -438,7 +410,7 @@
         function removeWatermark() {
             state.wmImg = null;
             els.wmFile.value = "";
-            updateUIFromState();
+            updateUIState();
             updateAll();
         }
 
@@ -540,11 +512,6 @@
             $('batchStatus').innerText = "Đang áp dụng...";
             els.btnDown.disabled = true;
             
-            // We just update logic, real processing happens on Download
-            // But we can update thumbnails here if we want to be fancy. 
-            // For simplicity and speed, we assume batch is "ready" to download.
-            // The download function iterates all images and processes them then.
-            
             $('batchStatus').innerText = "Đã áp dụng cho " + state.images.length + " ảnh";
             els.btnDown.disabled = false;
         }
@@ -601,16 +568,16 @@
             
             // Visual Update for Anchors
             document.querySelectorAll('.anchor-btn').forEach(btn => btn.classList.remove('active'));
-            // Hard to match exact clicked button without ID, but simple enough for UX
         }
 
         async function downloadAll() {
             if (state.images.length === 0) return;
             
             const zip = new JSZip();
-            const ext = state.config.output.format === 'image/png' ? 'png' : 'jpg';
-            const quality = state.config.output.quality;
-            const format = state.config.output.format;
+            // HARDCODED HIGH QUALITY
+            const ext = 'png';
+            const quality = 1.0;
+            const format = 'image/png';
             
             els.btnDown.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
             els.btnDown.disabled = true;
@@ -633,41 +600,8 @@
             els.btnDown.disabled = false;
         }
 
-        // --- STORAGE & UI UPDATE ---
-        function saveConfig() {
-            localStorage.setItem('simpleLogoConfig', JSON.stringify(state.config));
-            alert("Đã lưu vị trí logo!");
-        }
-
-        function loadConfig() {
-            const saved = localStorage.getItem('simpleLogoConfig');
-            if(saved) {
-                try {
-                    const cfg = JSON.parse(saved);
-                    state.config = { ...state.config, ...cfg };
-                    state.config.wm = { ...state.config.wm, ...cfg.wm };
-                    state.config.output = { ...state.config.output, ...cfg.output };
-                    updateUIFromState();
-                } catch(e) { console.error(e); }
-            }
-        }
-
-        function resetConfig() {
-            if(confirm("Về cài đặt gốc?")) {
-                localStorage.removeItem('simpleLogoConfig');
-                location.reload();
-            }
-        }
-
-        function updateUIFromState() {
-            const c = state.config;
-            
-            els.wmX.value = c.wm.x; els.valWmX.innerText = c.wm.x;
-            els.wmY.value = c.wm.y; els.valWmY.innerText = c.wm.y;
-            els.wmSize.value = c.wm.size; els.numWmSize.value = c.wm.size;
-            els.wmOp.value = c.wm.opacity; els.valWmOp.innerText = c.wm.opacity;
-
-            // Show/Hide Wm Text
+        function updateUIState() {
+            // Show/Hide Wm Text based on if image is selected
             if(state.wmImg) {
                 els.lblWmText.innerText = "Đổi file Logo";
                 els.btnRemoveWm.style.display = "block";
@@ -681,9 +615,6 @@
                 els.lblWmBtn.style.color = "#333";
                 els.lblWmBtn.style.background = "#fff";
             }
-
-            els.outFmt.value = c.output.format;
-            els.outQual.value = c.output.quality; els.valQual.innerText = Math.round(c.output.quality*100);
         }
 
     </script>
