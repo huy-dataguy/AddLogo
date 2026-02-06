@@ -201,23 +201,23 @@
                     <label style="justify-content:center; margin-top:15px; color: #64748b;">Vị trí nhanh</label>
                     <div class="anchor-grid">
                         <div class="anchor-btn" onclick="setAnchor(0,0)" title="Trên Trái"></div>
-                        <div class="anchor-btn" onclick="setAnchor(50,0)" title="Trên Giữa"></div>
+                        <div class="anchor-btn active" onclick="setAnchor(50,0)" title="Trên Giữa"></div>
                         <div class="anchor-btn" onclick="setAnchor(100,0)" title="Trên Phải"></div>
                         <div class="anchor-btn" onclick="setAnchor(0,50)" title="Giữa Trái"></div>
                         <div class="anchor-btn" onclick="setAnchor(50,50)" title="Chính Giữa"></div>
                         <div class="anchor-btn" onclick="setAnchor(100,50)" title="Giữa Phải"></div>
                         <div class="anchor-btn" onclick="setAnchor(0,100)" title="Dưới Trái"></div>
                         <div class="anchor-btn" onclick="setAnchor(50,100)" title="Dưới Giữa"></div>
-                        <div class="anchor-btn active" onclick="setAnchor(100,100)" title="Dưới Phải"></div>
+                        <div class="anchor-btn" onclick="setAnchor(100,100)" title="Dưới Phải"></div>
                     </div>
 
                     <div class="control-row">
-                        <label>Vị trí Ngang (X%): <span id="valWmX">95</span></label>
-                        <input type="range" id="wmX" min="0" max="100" value="95">
+                        <label>Vị trí Ngang (X%): <span id="valWmX">50</span></label>
+                        <input type="range" id="wmX" min="0" max="100" value="50">
                     </div>
                     <div class="control-row">
-                        <label>Vị trí Dọc (Y%): <span id="valWmY">95</span></label>
-                        <input type="range" id="wmY" min="0" max="100" value="95">
+                        <label>Vị trí Dọc (Y%): <span id="valWmY">0</span></label>
+                        <input type="range" id="wmY" min="0" max="100" value="0">
                     </div>
 
                     <div class="control-row">
@@ -226,8 +226,8 @@
                     </div>
 
                     <div class="control-row">
-                        <label>Độ mờ: <span id="valWmOp">0.9</span></label>
-                        <input type="range" id="wmOpacity" min="0.1" max="1" step="0.05" value="0.9">
+                        <label>Độ mờ: <span id="valWmOp">1</span></label>
+                        <input type="range" id="wmOpacity" min="0.1" max="1" step="0.05" value="1">
                     </div>
                 </div>
             </div>
@@ -273,7 +273,7 @@
             wmImg: null,
             selectedIndex: 0,
             config: {
-                wm: { x: 95, y: 95, size: 15, opacity: 0.9 }, // Default bottom-right
+                wm: { x: 50, y: 0, size: 15, opacity: 1.0 }, // Default Top-Center
                 output: { format: 'image/png', quality: 1.0 } // FORCE HIGH QUALITY
             }
         };
@@ -599,7 +599,7 @@
 
             els.btnDown.innerHTML = '<i class="fas fa-file-zipper"></i> Đang nén ZIP...';
             const content = await zip.generateAsync({type:"blob"});
-            saveAs(content, "AddLogoDone.zip");AddLogoDone
+            saveAs(content, "AddLogoDone.zip");
             
             els.btnDown.innerHTML = '<i class="fas fa-download"></i> Tải Xuống (.ZIP)';
             els.btnDown.disabled = false;
