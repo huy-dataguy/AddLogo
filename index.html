@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Demo Add Logo</title>
+    <title>Add Logo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -68,8 +68,8 @@
             z-index: 10; pointer-events: none;
         }
         #masterCanvas {
-            max-width: 100%;
-            max-height: 100%;
+            /* Loại bỏ max-width/height 100% để tránh xung đột với việc set style trực tiếp */
+            /* max-width: 100%; max-height: 100%; -> Đã bỏ để JS tự tính toán */
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             background: url('data:image/svg+xml;utf8,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="10" height="10" fill="%23eee"/><rect x="10" y="10" width="10" height="10" fill="%23eee"/></svg>');
         }
@@ -440,7 +440,11 @@
             // Generate temporary canvas for the single image
             const resultCanvas = processSingleImage(item.imgObj);
 
-            // Fit result to display canvas (Responsive fit)
+            // Set internal resolution to match original image (High DPI)
+            els.masterCanvas.width = resultCanvas.width;
+            els.masterCanvas.height = resultCanvas.height;
+
+            // Calculate display size (CSS) to fit container
             const containerW = els.masterCanvas.parentElement.clientWidth - 40;
             const containerH = els.masterCanvas.parentElement.clientHeight - 40;
             
@@ -449,11 +453,12 @@
 
             const scale = Math.min(containerW / resultCanvas.width, containerH / resultCanvas.height);
             
-            els.masterCanvas.width = resultCanvas.width * scale;
-            els.masterCanvas.height = resultCanvas.height * scale;
+            // Apply scale via CSS style, keeping internal resolution high
+            els.masterCanvas.style.width = (resultCanvas.width * scale) + 'px';
+            els.masterCanvas.style.height = (resultCanvas.height * scale) + 'px';
             
-            // Draw scaled image to visible canvas
-            ctx.drawImage(resultCanvas, 0, 0, els.masterCanvas.width, els.masterCanvas.height);
+            // Draw image at full resolution
+            ctx.drawImage(resultCanvas, 0, 0);
         }
 
         function processSingleImage(imgObj) {
@@ -594,7 +599,7 @@
 
             els.btnDown.innerHTML = '<i class="fas fa-file-zipper"></i> Đang nén ZIP...';
             const content = await zip.generateAsync({type:"blob"});
-            saveAs(content, "AddLogoDone.zip");
+            saveAs(content, "AddLogoDone.zip");AddLogoDone
             
             els.btnDown.innerHTML = '<i class="fas fa-download"></i> Tải Xuống (.ZIP)';
             els.btnDown.disabled = false;
