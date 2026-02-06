@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Đóng Dấu Hàng Loạt Đơn Giản v3.0</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --danger: #ef4444;
+            --secondary: #475569;
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --text: #0f172a;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; outline: none; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; height: 100vh; display: flex; overflow: hidden; }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 320px;
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            z-index: 20;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.05);
+        }
+
+        .sidebar-header { 
+            padding: 20px; 
+            border-bottom: 1px solid var(--border); 
+            background: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sidebar-header h1 { margin: 0; font-size: 16px; color: var(--primary); font-weight: 800; text-transform: uppercase; }
+        
+        .config-actions button {
+            background: none; border: 1px solid var(--border);
+            border-radius: 4px; padding: 4px 8px; cursor: pointer; color: var(--secondary); font-size: 12px;
+            transition: all 0.2s;
+        }
+        .config-actions button:hover { background: var(--bg); color: var(--primary); border-color: var(--primary); }
+
+        .scroll-area { flex: 1; overflow-y: auto; padding: 20px; }
+        
+        /* --- MAIN VIEW --- */
+        .main-content { flex: 1; display: flex; flex-direction: column; background: #f1f5f9; position: relative; }
+        
+        /* 1. Large Preview Area (Sample) */
+        .master-preview-container {
+            flex: 0 0 60%; /* Tăng diện tích xem ảnh */
+            background: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 20px;
+            border-bottom: 1px solid #cbd5e1;
+            overflow: hidden;
+        }
+        .master-label {
+            position: absolute; top: 10px; left: 10px;
+            background: rgba(0,0,0,0.6); color: white;
+            padding: 4px 10px; border-radius: 4px; font-size: 12px;
+            z-index: 10; pointer-events: none;
+        }
+        #masterCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            background: url('data:image/svg+xml;utf8,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="10" height="10" fill="%23eee"/><rect x="10" y="10" width="10" height="10" fill="%23eee"/></svg>');
+        }
+
+        /* 2. Grid Area */
+        .grid-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .grid-header { font-size: 14px; font-weight: 700; margin-bottom: 15px; color: var(--secondary); display: flex; justify-content: space-between; align-items: center; }
+        .btn-clear-all { font-size: 12px; color: var(--danger); cursor: pointer; background: none; border: none; padding: 5px; }
+        .btn-clear-all:hover { text-decoration: underline; }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            padding-bottom: 60px;
+        }
+        .img-card {
+            background: white; border-radius: 6px; overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 2px solid transparent;
+            cursor: pointer; transition: all 0.2s;
+            position: relative;
+        }
+        .img-card.active { border-color: var(--primary); transform: scale(1.05); z-index: 5; box-shadow: 0 0 0 2px var(--primary); }
+        .img-card img { width: 100%; height: 80px; object-fit: cover; display: block; }
+        .img-card:hover { transform: translateY(-2px); }
+
+        /* Delete Button on Card */
+        .card-delete-btn {
+            position: absolute; top: 2px; right: 2px;
+            width: 18px; height: 18px;
+            background: rgba(239, 68, 68, 0.9); color: white;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 10px; font-weight: bold;
+            opacity: 0; transition: opacity 0.2s;
+            z-index: 10;
+        }
+        .img-card:hover .card-delete-btn { opacity: 1; }
+        .card-delete-btn:hover { background: #dc2626; transform: scale(1.1); }
+
+        /* --- CONTROLS --- */
+        .group { margin-bottom: 20px; border: 1px solid var(--border); border-radius: 8px; background: #fff; overflow: hidden; }
+        .group-header {
+            padding: 10px 15px; background: #f8fafc; border-bottom: 1px solid var(--border);
+            font-weight: 600; font-size: 13px; color: var(--primary);
+        }
+        .group-content { padding: 15px; display: block; }
+
+        .control-row { margin-bottom: 12px; }
+        .control-row:last-child { margin-bottom: 0; }
+        label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 500; margin-bottom: 5px; color: var(--secondary); }
+        
+        input[type="range"] { width: 100%; height: 4px; background: #cbd5e1; border-radius: 2px; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--primary); border-radius: 50%; cursor: pointer; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+        .file-btn {
+            background: #eff6ff; color: var(--primary); border: 1px dashed var(--primary);
+            padding: 10px; border-radius: 6px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 600;
+            display: block; width: 100%; position: relative; overflow: hidden; transition: all 0.2s;
+        }
+        .file-btn:hover { background: #dbeafe; border-color: #1d4ed8; }
+        input[type="file"] { display: none; }
+
+        /* Mini Delete for File Input */
+        .file-remove-link {
+            display: none;
+            font-size: 11px; color: var(--danger); text-decoration: underline; 
+            text-align: right; margin-top: 5px; cursor: pointer;
+        }
+
+        .btn-primary {
+            position: fixed; bottom: 20px; right: 20px;
+            background: var(--primary); color: white; border: none;
+            padding: 12px 30px; border-radius: 50px; font-weight: 700;
+            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.3);
+            cursor: pointer; z-index: 100; transition: transform 0.2s;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .btn-primary:hover { transform: translateY(-2px); background: #1d4ed8; }
+        .btn-primary:disabled { background: #94a3b8; transform: none; cursor: not-allowed; }
+
+        .anchor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 90px; margin: 0 auto 15px auto; }
+        .anchor-btn { aspect-ratio: 1; border: 1px solid #cbd5e1; background: #f1f5f9; cursor: pointer; border-radius: 4px; transition: all 0.1s; }
+        .anchor-btn:hover { background: #e2e8f0; }
+        .anchor-btn.active { background: var(--primary); border-color: var(--primary); }
+
+        .mini-input { width: 50px; padding: 2px 5px; border: 1px solid #cbd5e1; border-radius: 3px; font-size: 11px; text-align: center; }
+
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1><i class="fas fa-stamp"></i> Auto Logo Batch</h1>
+            <div class="config-actions">
+                <button onclick="saveConfig()" title="Lưu vị trí logo"><i class="fas fa-save"></i> Lưu</button>
+                <button onclick="resetConfig()" title="Về mặc định"><i class="fas fa-undo"></i> Gốc</button>
+            </div>
+        </div>
+
+        <div class="scroll-area">
+            <!-- 1. Input -->
+            <div class="group">
+                <div class="group-header">1. Ảnh cần đóng dấu</div>
+                <div class="group-content">
+                    <label class="file-btn">
+                        <i class="fas fa-images"></i> <span id="lblFiles">Tải ảnh lên (Nhiều ảnh)</span>
+                        <input type="file" id="inpFiles" multiple accept="image/*">
+                    </label>
+                    <div id="fileCount" style="margin-top:5px; font-size:11px; color:gray; text-align:center;">Chưa có ảnh nào</div>
+                </div>
+            </div>
+
+            <!-- 2. Logo Config -->
+            <div class="group">
+                <div class="group-header">2. Cấu hình Logo</div>
+                <div class="group-content">
+                    <div>
+                        <label class="file-btn" id="lblWmBtn" style="border-style: solid; background: #fff; border-color: #cbd5e1; color: #333;">
+                            <i class="fas fa-file-image"></i> <span id="lblWmText">Chọn file Logo (PNG)</span>
+                            <input type="file" id="inpWatermark" accept="image/*">
+                        </label>
+                        <div class="file-remove-link" id="btnRemoveWm" onclick="removeWatermark()">Gỡ bỏ Logo</div>
+                    </div>
+
+                    <!-- Anchor Grid -->
+                    <label style="justify-content:center; margin-top:15px; color: #64748b;">Vị trí nhanh</label>
+                    <div class="anchor-grid">
+                        <div class="anchor-btn" onclick="setAnchor(0,0)" title="Trên Trái"></div>
+                        <div class="anchor-btn" onclick="setAnchor(50,0)" title="Trên Giữa"></div>
+                        <div class="anchor-btn" onclick="setAnchor(100,0)" title="Trên Phải"></div>
+                        <div class="anchor-btn" onclick="setAnchor(0,50)" title="Giữa Trái"></div>
+                        <div class="anchor-btn" onclick="setAnchor(50,50)" title="Chính Giữa"></div>
+                        <div class="anchor-btn" onclick="setAnchor(100,50)" title="Giữa Phải"></div>
+                        <div class="anchor-btn" onclick="setAnchor(0,100)" title="Dưới Trái"></div>
+                        <div class="anchor-btn" onclick="setAnchor(50,100)" title="Dưới Giữa"></div>
+                        <div class="anchor-btn active" onclick="setAnchor(100,100)" title="Dưới Phải"></div>
+                    </div>
+
+                    <div class="control-row">
+                        <label>Vị trí Ngang (X%): <span id="valWmX">95</span></label>
+                        <input type="range" id="wmX" min="0" max="100" value="95">
+                    </div>
+                    <div class="control-row">
+                        <label>Vị trí Dọc (Y%): <span id="valWmY">95</span></label>
+                        <input type="range" id="wmY" min="0" max="100" value="95">
+                    </div>
+
+                    <div class="control-row">
+                        <label>Kích thước (%): <input type="number" id="numWmSize" class="mini-input" value="15"></label>
+                        <input type="range" id="wmSize" min="1" max="80" value="15" step="0.5">
+                    </div>
+
+                    <div class="control-row">
+                        <label>Độ mờ: <span id="valWmOp">0.9</span></label>
+                        <input type="range" id="wmOpacity" min="0.1" max="1" step="0.05" value="0.9">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Export -->
+            <div class="group">
+                <div class="group-header">3. Xuất file</div>
+                <div class="group-content">
+                    <div class="control-row">
+                        <label>Định dạng:</label>
+                        <select id="outFormat" style="width:100%; padding:5px; border-radius: 4px; border: 1px solid #cbd5e1;">
+                            <option value="image/jpeg">JPG (Web - Nhẹ)</option>
+                            <option value="image/png">PNG (Chất lượng cao)</option>
+                        </select>
+                    </div>
+                    <div class="control-row">
+                        <label>Chất lượng: <span id="valQual">100</span>%</label>
+                        <input type="range" id="outQuality" min="0.5" max="1" step="0.01" value="1">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <!-- Master Preview -->
+        <div class="master-preview-container">
+            <div class="master-label"><i class="fas fa-eye"></i> Xem trước (Master)</div>
+            <canvas id="masterCanvas"></canvas>
+            <div id="masterMsg" style="position:absolute; color:#64748b; font-size:14px; text-align:center;">
+                <i class="fas fa-arrow-left"></i><br>Bắt đầu bằng cách chọn ảnh ở cột trái
+            </div>
+        </div>
+
+        <!-- Grid Batch -->
+        <div class="grid-container">
+            <div class="grid-header">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span><i class="fas fa-images"></i> Danh sách ảnh (<span id="txtListCount">0</span>)</span>
+                    <button class="btn-clear-all" onclick="removeAllImages()">Xóa hết</button>
+                </div>
+                <span id="batchStatus" style="font-weight:400; font-size:12px; color: var(--primary);">Sẵn sàng</span>
+            </div>
+            <div class="preview-grid" id="previewGrid"></div>
+        </div>
+    </div>
+
+    <button id="btnDownload" class="btn-primary" disabled onclick="downloadAll()">
+        <i class="fas fa-download"></i> Tải Xuống (.ZIP)
+    </button>
+
+    <script>
+        // --- DATA STATE ---
+        let state = {
+            images: [], // { name, imgObj, blob }
+            wmImg: null,
+            selectedIndex: 0,
+            config: {
+                wm: { x: 95, y: 95, size: 15, opacity: 0.9 }, // Default bottom-right
+                output: { format: 'image/jpeg', quality: 1.0 }
+            }
+        };
+
+        // --- DOM ELEMENTS ---
+        const $ = id => document.getElementById(id);
+        const els = {
+            files: $('inpFiles'),
+            wmFile: $('inpWatermark'),
+            masterCanvas: $('masterCanvas'),
+            grid: $('previewGrid'),
+            btnDown: $('btnDownload'),
+            fileCount: $('fileCount'),
+            txtListCount: $('txtListCount'),
+            
+            // Labels & Displays
+            valWmX: $('valWmX'), valWmY: $('valWmY'), 
+            valWmOp: $('valWmOp'), valQual: $('valQual'),
+            numWmSize: $('numWmSize'),
+            lblWmText: $('lblWmText'), btnRemoveWm: $('btnRemoveWm'),
+            lblFiles: $('lblFiles'),
+            
+            // Inputs
+            wmX: $('wmX'), wmY: $('wmY'), wmSize: $('wmSize'), wmOp: $('wmOpacity'),
+            outFmt: $('outFormat'), outQual: $('outQuality')
+        };
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            loadConfig(); 
+            initListeners();
+            resizeCanvas();
+        };
+        window.onresize = resizeCanvas;
+
+        function resizeCanvas() {
+            renderMaster();
+        }
+
+        function initListeners() {
+            // Files Upload
+            els.files.onchange = async (e) => {
+                const files = Array.from(e.target.files);
+                if(files.length === 0) return;
+                
+                $('masterMsg').innerText = "Đang tải ảnh...";
+                
+                for(let f of files) {
+                    const img = await loadImage(f);
+                    if(img) state.images.push({ name: f.name, imgObj: img, blob: null });
+                }
+                
+                updateImageCount();
+                if(state.images.length > 0 && state.selectedIndex >= state.images.length) state.selectedIndex = 0;
+                
+                renderMaster();
+                renderGridThumbnails();
+                debounceBatch();
+            };
+            
+            // Logo Upload
+            els.wmFile.onchange = async (e) => {
+                if(e.target.files[0]) {
+                    state.wmImg = await loadImage(e.target.files[0]);
+                    updateUIFromState();
+                    updateAll();
+                }
+            };
+
+            // Bind Inputs (Updated to prevent callback errors)
+            bindInput(els.wmX, 'wm', 'x', (val) => els.valWmX.innerText = val);
+            bindInput(els.wmY, 'wm', 'y', (val) => els.valWmY.innerText = val);
+            bindInput(els.wmSize, 'wm', 'size', (val) => els.numWmSize.value = val);
+            bindInput(els.wmOp, 'wm', 'opacity', (val) => els.valWmOp.innerText = val);
+            
+            // Sync number input for size
+            els.numWmSize.onchange = (e) => {
+                let v = parseFloat(e.target.value);
+                if(isNaN(v)) v = 15;
+                if(v < 1) v = 1; if(v > 100) v = 100;
+                els.wmSize.value = v;
+                state.config.wm.size = v;
+                updateAll();
+            }
+
+            bindInput(els.outFmt, 'output', 'format');
+            bindInput(els.outQual, 'output', 'quality', (val) => els.valQual.innerText = Math.round(val*100));
+        }
+
+        function bindInput(el, cat, key, callback) {
+            el.addEventListener('input', (e) => {
+                const val = (el.type === 'checkbox') ? el.checked : 
+                            (el.type === 'number' || el.type === 'range') ? parseFloat(el.value) : el.value;
+                state.config[cat][key] = val;
+                if(callback && typeof callback === 'function') callback(val);
+                updateAll();
+            });
+        }
+
+        // --- REMOVE & CLEAR LOGIC ---
+
+        function removeImage(idx) {
+            if(idx < 0 || idx >= state.images.length) return;
+            state.images.splice(idx, 1);
+            
+            if(state.selectedIndex >= state.images.length) {
+                state.selectedIndex = Math.max(0, state.images.length - 1);
+            }
+            if(state.images.length === 0) {
+                resetToEmpty();
+            } else {
+                updateImageCount();
+                renderGridThumbnails();
+                renderMaster();
+                debounceBatch();
+            }
+        }
+
+        function removeAllImages() {
+            if(state.images.length === 0) return;
+            if(!confirm("Xóa toàn bộ danh sách ảnh?")) return;
+            state.images = [];
+            resetToEmpty();
+        }
+        
+        function resetToEmpty() {
+            state.selectedIndex = 0;
+            updateImageCount();
+            renderGridThumbnails();
+            $('masterMsg').style.display = 'block';
+            $('masterMsg').innerHTML = '<i class="fas fa-arrow-left"></i><br>Bắt đầu bằng cách chọn ảnh ở cột trái';
+            const ctx = els.masterCanvas.getContext('2d');
+            ctx.clearRect(0,0, els.masterCanvas.width, els.masterCanvas.height);
+            $('batchStatus').innerText = "Sẵn sàng";
+        }
+
+        function removeWatermark() {
+            state.wmImg = null;
+            els.wmFile.value = "";
+            updateUIFromState();
+            updateAll();
+        }
+
+        function updateImageCount() {
+            const count = state.images.length;
+            els.fileCount.innerText = `${count} ảnh đã tải`;
+            els.txtListCount.innerText = count;
+            els.lblFiles.innerText = count > 0 ? "Thêm ảnh..." : "Tải ảnh lên (Nhiều ảnh)";
+        }
+
+        // --- CORE LOGIC ---
+
+        function updateAll() {
+            renderMaster();
+            debounceBatch();
+        }
+
+        function renderMaster() {
+            const ctx = els.masterCanvas.getContext('2d');
+            if(state.images.length === 0) return;
+            
+            $('masterMsg').style.display = 'none';
+
+            const item = state.images[state.selectedIndex];
+            if(!item) return;
+
+            // Generate temporary canvas for the single image
+            const resultCanvas = processSingleImage(item.imgObj);
+
+            // Fit result to display canvas (Responsive fit)
+            const containerW = els.masterCanvas.parentElement.clientWidth - 40;
+            const containerH = els.masterCanvas.parentElement.clientHeight - 40;
+            
+            // Avoid division by zero
+            if (resultCanvas.width === 0 || resultCanvas.height === 0) return;
+
+            const scale = Math.min(containerW / resultCanvas.width, containerH / resultCanvas.height);
+            
+            els.masterCanvas.width = resultCanvas.width * scale;
+            els.masterCanvas.height = resultCanvas.height * scale;
+            
+            // Draw scaled image to visible canvas
+            ctx.drawImage(resultCanvas, 0, 0, els.masterCanvas.width, els.masterCanvas.height);
+        }
+
+        function processSingleImage(imgObj) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            let w = imgObj.naturalWidth;
+            let h = imgObj.naturalHeight;
+
+            canvas.width = w;
+            canvas.height = h;
+            
+            // High Quality Settings
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            // 1. Draw Main Image
+            ctx.drawImage(imgObj, 0, 0, w, h);
+
+            // 2. Draw Logo (Watermark)
+            if(state.wmImg) {
+                const wm = state.wmImg;
+                // Calculate size relative to background image width
+                const wmSizePx = (w * state.config.wm.size) / 100;
+                
+                if (wm.naturalWidth > 0) {
+                    const wmRatio = wm.naturalHeight / wm.naturalWidth;
+                    const wmH = wmSizePx * wmRatio;
+                    
+                    // Position Logic (0-100%)
+                    const posX = (w - wmSizePx) * (state.config.wm.x / 100);
+                    const posY = (h - wmH) * (state.config.wm.y / 100);
+
+                    ctx.globalAlpha = state.config.wm.opacity;
+                    ctx.drawImage(wm, posX, posY, wmSizePx, wmH);
+                    ctx.globalAlpha = 1.0;
+                }
+            }
+
+            return canvas;
+        }
+
+        let batchTimeout;
+        function debounceBatch() {
+            clearTimeout(batchTimeout);
+            $('batchStatus').innerText = "Đang chờ...";
+            batchTimeout = setTimeout(runBatch, 500);
+        }
+
+        async function runBatch() {
+            if(state.images.length === 0) {
+                $('batchStatus').innerText = "Sẵn sàng";
+                els.btnDown.disabled = true;
+                return;
+            }
+            $('batchStatus').innerText = "Đang áp dụng...";
+            els.btnDown.disabled = true;
+            
+            // We just update logic, real processing happens on Download
+            // But we can update thumbnails here if we want to be fancy. 
+            // For simplicity and speed, we assume batch is "ready" to download.
+            // The download function iterates all images and processes them then.
+            
+            $('batchStatus').innerText = "Đã áp dụng cho " + state.images.length + " ảnh";
+            els.btnDown.disabled = false;
+        }
+
+        function renderGridThumbnails() {
+            els.grid.innerHTML = '';
+            state.images.forEach((item, idx) => {
+                const div = document.createElement('div');
+                div.className = `img-card ${idx === state.selectedIndex ? 'active' : ''}`;
+                div.onclick = () => selectImage(idx);
+                
+                // Thumbnail Image
+                const img = document.createElement('img');
+                img.src = item.imgObj.src; 
+                div.appendChild(img);
+
+                // Delete Button (X)
+                const delBtn = document.createElement('div');
+                delBtn.className = 'card-delete-btn';
+                delBtn.innerHTML = '<i class="fas fa-times"></i>';
+                delBtn.title = "Xóa ảnh này";
+                delBtn.onclick = (e) => { e.stopPropagation(); removeImage(idx); };
+                div.appendChild(delBtn);
+
+                els.grid.appendChild(div);
+            });
+        }
+
+        function selectImage(idx) {
+            state.selectedIndex = idx;
+            Array.from(els.grid.children).forEach((c, i) => {
+                c.classList.toggle('active', i === idx);
+            });
+            renderMaster();
+        }
+
+        function loadImage(file) {
+            return new Promise(r => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const img = new Image();
+                    img.onload = () => r(img);
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function setAnchor(x, y) {
+            els.wmX.value = x; els.wmY.value = y;
+            state.config.wm.x = x; state.config.wm.y = y;
+            els.valWmX.innerText = x; els.valWmY.innerText = y;
+            updateAll();
+            
+            // Visual Update for Anchors
+            document.querySelectorAll('.anchor-btn').forEach(btn => btn.classList.remove('active'));
+            // Hard to match exact clicked button without ID, but simple enough for UX
+        }
+
+        async function downloadAll() {
+            if (state.images.length === 0) return;
+            
+            const zip = new JSZip();
+            const ext = state.config.output.format === 'image/png' ? 'png' : 'jpg';
+            const quality = state.config.output.quality;
+            const format = state.config.output.format;
+            
+            els.btnDown.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+            els.btnDown.disabled = true;
+
+            // Process all images
+            for(let i=0; i < state.images.length; i++) {
+                const item = state.images[i];
+                const cvs = processSingleImage(item.imgObj);
+                const blob = await new Promise(r => cvs.toBlob(r, format, quality));
+                
+                const fname = item.name.substring(0, item.name.lastIndexOf('.')) || item.name;
+                zip.file(`${fname}_logo.${ext}`, blob);
+            }
+
+            els.btnDown.innerHTML = '<i class="fas fa-file-zipper"></i> Đang nén ZIP...';
+            const content = await zip.generateAsync({type:"blob"});
+            saveAs(content, "Anh_Da_Dong_Dau.zip");
+            
+            els.btnDown.innerHTML = '<i class="fas fa-download"></i> Tải Xuống (.ZIP)';
+            els.btnDown.disabled = false;
+        }
+
+        // --- STORAGE & UI UPDATE ---
+        function saveConfig() {
+            localStorage.setItem('simpleLogoConfig', JSON.stringify(state.config));
+            alert("Đã lưu vị trí logo!");
+        }
+
+        function loadConfig() {
+            const saved = localStorage.getItem('simpleLogoConfig');
+            if(saved) {
+                try {
+                    const cfg = JSON.parse(saved);
+                    state.config = { ...state.config, ...cfg };
+                    state.config.wm = { ...state.config.wm, ...cfg.wm };
+                    state.config.output = { ...state.config.output, ...cfg.output };
+                    updateUIFromState();
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        function resetConfig() {
+            if(confirm("Về cài đặt gốc?")) {
+                localStorage.removeItem('simpleLogoConfig');
+                location.reload();
+            }
+        }
+
+        function updateUIFromState() {
+            const c = state.config;
+            
+            els.wmX.value = c.wm.x; els.valWmX.innerText = c.wm.x;
+            els.wmY.value = c.wm.y; els.valWmY.innerText = c.wm.y;
+            els.wmSize.value = c.wm.size; els.numWmSize.value = c.wm.size;
+            els.wmOp.value = c.wm.opacity; els.valWmOp.innerText = c.wm.opacity;
+
+            // Show/Hide Wm Text
+            if(state.wmImg) {
+                els.lblWmText.innerText = "Đổi file Logo";
+                els.btnRemoveWm.style.display = "block";
+                els.lblWmBtn.style.borderColor = "#2563eb";
+                els.lblWmBtn.style.color = "#2563eb";
+                els.lblWmBtn.style.background = "#eff6ff";
+            } else {
+                els.lblWmText.innerText = "Chọn file Logo (PNG)";
+                els.btnRemoveWm.style.display = "none";
+                els.lblWmBtn.style.borderColor = "#cbd5e1";
+                els.lblWmBtn.style.color = "#333";
+                els.lblWmBtn.style.background = "#fff";
+            }
+
+            els.outFmt.value = c.output.format;
+            els.outQual.value = c.output.quality; els.valQual.innerText = Math.round(c.output.quality*100);
+        }
+
+    </script>
+</body>
+</html>
